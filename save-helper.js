@@ -220,9 +220,13 @@
       decorateAll();
       let vehicles=Array.from(document.querySelectorAll('.vehicle'));
       while(vehicles.length<d.vehicles.length){
-        const add=document.getElementById('addVehicleBottom')||document.getElementById('addVehicle');
-        if(!add)break;
-        add.click();
+        if(typeof window.__embkRestoreAddVehicle==='function'){
+          window.__embkRestoreAddVehicle();
+        }else{
+          const add=document.getElementById('addVehicleBottom')||document.getElementById('addVehicle');
+          if(!add)break;
+          add.click();
+        }
         vehicles=Array.from(document.querySelectorAll('.vehicle'));
       }
       d.vehicles.forEach(function(vo,i){
