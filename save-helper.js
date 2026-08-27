@@ -346,11 +346,15 @@
         if(ok){
           // Force aussi la sauvegarde native qui mémorise le nombre de véhicules.
           // Le déclenchement se fait après SAFE_CURRENT afin de ne jamais perdre la copie complète.
-          triggerDraftSave();
           if(state)state.textContent='Finalisation de la sauvegarde…';
-          setTimeout(function(){
+          try{
+            if(typeof window.__embkNativeSave==='function')await window.__embkNativeSave();
+            else triggerDraftSave();
             if(state)state.textContent='Tout le rapport, tous les véhicules et toutes les photos sont enregistrés ✓';
-          },1400);
+          }catch(e){
+            console.error('Sauvegarde native',e);
+            if(state)state.textContent='Sauvegarde complète protégée ✓ — erreur copie principale : '+(e&&e.message?e.message:String(e));
+          }
         }else{
           if(state)state.textContent='Échec de la sauvegarde complète';
         }
