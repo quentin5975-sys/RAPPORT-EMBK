@@ -202,25 +202,15 @@
     }
     return vehicles[i]||null;
   }
-  function inputBySavedPhoto(side,ph,j,legacyMode){
-    const inputs=Array.from(side.querySelectorAll('input[type=file]'));
-    if(ph&&ph.label){
-      const label=ph.label.startsWith('Photo de la casse')?'Photo de la casse':ph.label;
-      const exact=inputs.find(function(inp){
-        const x=(inp.dataset.label||'');
-        return (x.startsWith('Photo de la casse')?'Photo de la casse':x)===label;
-      });
-      if(exact)return exact;
-    }
-    const normal=inputs.filter(function(inp){return !inp.closest('.damage-cause-wrap')});
-    if(legacyMode){
-      const savedCount=(arguments[4]&&arguments[4].savedCount)||0;
-      const hasDamageSlot=savedCount===normal.length+1;
-      const idx=hasDamageSlot?j-1:j;
-      return idx>=0?(normal[idx]||null):null;
-    }
-    if(ph&&Number.isInteger(ph.index))return inputs[ph.index]||normal[j]||null;
-    return normal[j]||null;
+  function normalizedPhotoLabel(label){
+    return String(label||'').startsWith('Photo de la casse')?'Photo de la casse':String(label||'');
+  }
+  function inputBySavedPhoto(side,ph){
+    if(!side||!ph||!ph.label)return null;
+    const wanted=normalizedPhotoLabel(ph.label);
+    return Array.from(side.querySelectorAll('input[type=file]')).find(function(inp){
+      return normalizedPhotoLabel(inp.dataset.label||'')===wanted;
+    })||null;
   }
   async function overlayProtectedOriginalPhotos(){
     try{
@@ -288,9 +278,9 @@
             if(r){r.checked=true;r.dispatchEvent(new Event('change',{bubbles:true}))}
           });
           if(side.querySelector('.res-value'))side.querySelector('.res-value').value=so.res||'';
-          (so.photos||[]).forEach(function(ph,j){
-            const inp=inputBySavedPhoto(side,ph,j,false);
-            if(ph&&ph.blob&&inp&&!fileFromInput(inp))putFileBack(inp,ph);
+          (so.photos||[]).forEach(function(ph){
+            const inp=inputBySavedPhoto(side,ph);
+            if(ph&&ph.blob&&inp)putFileBack(inp,ph);
           });
           updateDamageBlock(side);
         });
@@ -327,7 +317,10 @@
 
     document.addEventListener('change',function(e){
       if(restoreGuard)return;
-      if(e.target instanceof HTMLInputElement)queueComplete();
+      if(e.target instanceof HTMLInputElement){
+        if(e.target.type==='file')e.target._savedBlob=(e.target.files&&e.target.files[0])||null;
+        queueComplete();
+      }
     },true);
 
     document.addEventListener('embkVehicleAdded',function(){
@@ -365,15 +358,11 @@
         // then put the untouched original photo blobs back in their original slots.
         setTimeout(async function(){
           await overlayCompleteBackup();
-          await overlayProtectedOriginalPhotos();
-          await repairKnownRightDuplication();
           const state=document.getElementById('draftState');
           if(state)state.textContent='Brouillon repris — photos de tous les véhicules récupérées ✓';
         },1000);
         setTimeout(async function(){
           await overlayCompleteBackup();
-          await overlayProtectedOriginalPhotos();
-          await repairKnownRightDuplication();
           restoreGuard=false;
         },2200);
       }
