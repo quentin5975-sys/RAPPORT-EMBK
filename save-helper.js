@@ -218,7 +218,13 @@
       const d=box&&box.draft;
       if(!d||!Array.isArray(d.vehicles))return false;
       decorateAll();
-      const vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      let vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      while(vehicles.length<d.vehicles.length){
+        const add=document.getElementById('addVehicleBottom')||document.getElementById('addVehicle');
+        if(!add)break;
+        add.click();
+        vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      }
       d.vehicles.forEach(function(vo,i){
         const v=findVehicleElement(vehicles,vo,i); if(!v)return;
         ['left','right'].forEach(function(key){
@@ -338,7 +344,13 @@
         if(state)state.textContent='Enregistrement complet en cours…';
         const ok=await saveComplete();
         if(ok){
-          if(state)state.textContent='Tout le rapport, tous les véhicules et toutes les photos sont enregistrés ✓';
+          // Force aussi la sauvegarde native qui mémorise le nombre de véhicules.
+          // Le déclenchement se fait après SAFE_CURRENT afin de ne jamais perdre la copie complète.
+          triggerDraftSave();
+          if(state)state.textContent='Finalisation de la sauvegarde…';
+          setTimeout(function(){
+            if(state)state.textContent='Tout le rapport, tous les véhicules et toutes les photos sont enregistrés ✓';
+          },1400);
         }else{
           if(state)state.textContent='Échec de la sauvegarde complète';
         }
