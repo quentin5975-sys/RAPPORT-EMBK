@@ -111,13 +111,58 @@
     return data;
   }
 
+  async function saveLegacyCompatible(){
+    const data={
+      savedAt:Date.now(),
+      train:document.getElementById('train')?.value||'',
+      baseDate:document.getElementById('baseDate')?.value||'',
+      baseOperator:document.getElementById('baseOperator')?.value||'',
+      dateCommon:document.querySelector('input[name="dateCommon"]:checked')?.value||'',
+      opCommon:document.querySelector('input[name="opCommon"]:checked')?.value||'',
+      vehicles:[]
+    };
+    document.querySelectorAll('.vehicle').forEach(function(v){
+      const vo={
+        number:v.querySelector('.vehicle-number')?.value||'',
+        date:v.querySelector('.vehicle-date')?.value||'',
+        operator:v.querySelector('.vehicle-operator')?.value||'',
+        sides:{}
+      };
+      ['left','right'].forEach(function(key){
+        const side=v.querySelector('[id$="_'+key+'"]');
+        if(!side)return;
+        const id=side.id;
+        const so={
+          embk:side.querySelector('input[name="'+id+'_embk"]:checked')?.value||'',
+          coil:side.querySelector('input[name="'+id+'_coil"]:checked')?.value||'',
+          tests:side.querySelector('input[name="'+id+'_tests"]:checked')?.value||'',
+          res:side.querySelector('.res-value')?.value||'',
+          photos:[]
+        };
+        side.querySelectorAll('input[type=file]').forEach(function(inp){
+          const file=fileFromInput(inp);
+          so.photos.push(file?{
+            name:file.name||'photo.jpg',
+            type:file.type||'image/jpeg',
+            lastModified:file.lastModified||Date.now(),
+            blob:file
+          }:null);
+        });
+        vo.sides[key]=so;
+      });
+      data.vehicles.push(vo);
+    });
+    await dbPut(LEGACY_DB,LEGACY_STORE,LEGACY_KEY,data);
+    return data;
+  }
+
   async function saveComplete(message){
-    if(restoreGuard)return false;
     await protectExistingDraft();
     try{
       saveCauseState();
       const snap=await completeSnapshot();
       await dbPut(SAFE_DB,SAFE_STORE,SAFE_CURRENT,snap);
+      await saveLegacyCompatible();
       const state=document.getElementById('draftState');
       if(state&&message)state.textContent=message;
       return true;
@@ -332,10 +377,15 @@
       const btn=document.createElement('button');
       btn.id='saveDraftNow';btn.type='button';btn.className='btn success';btn.textContent='Enregistrer maintenant';
       btn.addEventListener('click',async function(){
-        const ok=await saveComplete('Sauvegarde complète en cours…');
+        restoreGuard=false;
+        clearTimeout(safeTimer);
+        const state=document.getElementById('draftState');
+        if(state)state.textContent='Enregistrement complet en cours…';
+        const ok=await saveComplete();
         if(ok){
-          triggerDraftSave();
-          setTimeout(()=>{const s=document.getElementById('draftState');if(s)s.textContent='Tout le rapport et toutes les photos sont enregistrés ✓'},900);
+          if(state)state.textContent='Tout le rapport, tous les véhicules et toutes les photos sont enregistrés ✓';
+        }else{
+          if(state)state.textContent='Échec de la sauvegarde complète';
         }
       });
       actions.insertBefore(btn,actions.lastElementChild);
