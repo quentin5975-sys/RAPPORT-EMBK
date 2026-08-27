@@ -194,6 +194,29 @@
     }catch(e){console.warn('Photo gardée en mémoire restaurée',e)}
   }
 
+  function findVehicleElement(vehicles,vo,i){
+    const num=(vo&&vo.number||'').trim();
+    if(num){
+      const exact=vehicles.find(function(v){return (v.querySelector('.vehicle-number')?.value||'').trim()===num});
+      if(exact)return exact;
+    }
+    return vehicles[i]||null;
+  }
+  function inputBySavedPhoto(side,ph,j,legacyMode){
+    const inputs=Array.from(side.querySelectorAll('input[type=file]'));
+    if(ph&&ph.label){
+      const label=ph.label.startsWith('Photo de la casse')?'Photo de la casse':ph.label;
+      const exact=inputs.find(function(inp){
+        const x=(inp.dataset.label||'');
+        return (x.startsWith('Photo de la casse')?'Photo de la casse':x)===label;
+      });
+      if(exact)return exact;
+    }
+    const normal=inputs.filter(function(inp){return !inp.closest('.damage-cause-wrap')});
+    if(legacyMode)return normal[j]||null;
+    if(ph&&Number.isInteger(ph.index))return inputs[ph.index]||normal[j]||null;
+    return normal[j]||null;
+  }
   async function overlayProtectedOriginalPhotos(){
     try{
       const box=await dbGet(SAFE_DB,SAFE_STORE,SAFE_LEGACY);
@@ -202,16 +225,13 @@
       decorateAll();
       const vehicles=Array.from(document.querySelectorAll('.vehicle'));
       d.vehicles.forEach(function(vo,i){
-        const v=vehicles[i]; if(!v)return;
+        const v=findVehicleElement(vehicles,vo,i); if(!v)return;
         ['left','right'].forEach(function(key){
           const side=v.querySelector('[id$="_'+key+'"]'),so=vo.sides&&vo.sides[key];
           if(!side||!so)return;
-          // IMPORTANT: old drafts were created before "Photo de la casse".
-          // Therefore the damage input must never count in the old positional array.
-          const oldInputs=Array.from(side.querySelectorAll('input[type=file]'))
-            .filter(function(inp){return !inp.closest('.damage-cause-wrap')});
           (so.photos||[]).forEach(function(ph,j){
-            if(ph&&ph.blob&&oldInputs[j])putFileBack(oldInputs[j],ph);
+            const inp=inputBySavedPhoto(side,ph,j,true);
+            if(ph&&ph.blob&&inp&&!fileFromInput(inp))putFileBack(inp,ph);
           });
         });
       });
@@ -226,7 +246,7 @@
       decorateAll();
       const vehicles=Array.from(document.querySelectorAll('.vehicle'));
       d.vehicles.forEach(function(vo,i){
-        const v=vehicles[i]; if(!v)return;
+        const v=findVehicleElement(vehicles,vo,i); if(!v)return;
         if(v.querySelector('.vehicle-number'))v.querySelector('.vehicle-number').value=vo.number||'';
         if(v.querySelector('.vehicle-date'))v.querySelector('.vehicle-date').value=vo.date||'';
         if(v.querySelector('.vehicle-operator'))v.querySelector('.vehicle-operator').value=vo.operator||'';
@@ -238,8 +258,10 @@
             if(r){r.checked=true;r.dispatchEvent(new Event('change',{bubbles:true}))}
           });
           if(side.querySelector('.res-value'))side.querySelector('.res-value').value=so.res||'';
-          const inputs=Array.from(side.querySelectorAll('input[type=file]'));
-          (so.photos||[]).forEach(function(ph,j){if(ph)putFileBack(inputs[ph.index??j],ph)});
+          (so.photos||[]).forEach(function(ph,j){
+            const inp=inputBySavedPhoto(side,ph,j,false);
+            if(ph&&ph.blob&&inp&&!fileFromInput(inp))putFileBack(inp,ph);
+          });
           updateDamageBlock(side);
         });
       });
@@ -312,11 +334,13 @@
         // Let the application's normal restore rebuild the fields first,
         // then put the untouched original photo blobs back in their original slots.
         setTimeout(async function(){
+          await overlayCompleteBackup();
           await overlayProtectedOriginalPhotos();
           const state=document.getElementById('draftState');
-          if(state)state.textContent='Brouillon repris — photos originales récupérées ✓';
+          if(state)state.textContent='Brouillon repris — photos de tous les véhicules récupérées ✓';
         },1000);
         setTimeout(async function(){
+          await overlayCompleteBackup();
           await overlayProtectedOriginalPhotos();
           restoreGuard=false;
         },2200);
