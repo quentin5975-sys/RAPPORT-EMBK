@@ -262,6 +262,15 @@
             const inp=inputBySavedPhoto(side,ph,j,false);
             if(ph&&ph.blob&&inp&&!fileFromInput(inp))putFileBack(inp,ph);
           });
+          if(key==='right'){
+            const saved=(so.photos||[]).filter(function(ph){return ph&&ph.blob});
+            const old1=side.querySelector('input[data-label="Ancien numéro de série - Photo 1"]');
+            const old2=side.querySelector('input[data-label="Ancien numéro de série - Photo 2"]');
+            if(saved.length>=2){
+              putFileBack(old1,saved[saved.length-2]);
+              putFileBack(old2,saved[saved.length-1]);
+            }
+          }
           updateDamageBlock(side);
         });
       });
