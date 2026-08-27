@@ -202,6 +202,17 @@
     }
     return vehicles[i]||null;
   }
+  function photoFingerprint(ph){
+    if(!ph||!ph.blob)return '';
+    const b=ph.blob;
+    return [b.size||0,b.type||ph.type||'',ph.name||'',ph.lastModified||b.lastModified||0].join('|');
+  }
+  function uniqueSavedPhotos(photos){
+    const list=photos||[],last=new Map();
+    list.forEach(function(ph,i){const fp=photoFingerprint(ph);if(fp)last.set(fp,i)});
+    return list.map(function(ph,i){const fp=photoFingerprint(ph);return fp&&last.get(fp)!==i?null:ph});
+  }
+
   function inputBySavedPhoto(side,ph,j,legacyMode){
     const inputs=Array.from(side.querySelectorAll('input[type=file]'));
     if(ph&&ph.label){
@@ -258,7 +269,7 @@
             if(r){r.checked=true;r.dispatchEvent(new Event('change',{bubbles:true}))}
           });
           if(side.querySelector('.res-value'))side.querySelector('.res-value').value=so.res||'';
-          (so.photos||[]).forEach(function(ph,j){
+          uniqueSavedPhotos(so.photos).forEach(function(ph,j){
             const inp=inputBySavedPhoto(side,ph,j,false);
             if(ph&&ph.blob&&inp&&!fileFromInput(inp))putFileBack(inp,ph);
           });
