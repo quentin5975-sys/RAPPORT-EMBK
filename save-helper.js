@@ -4,7 +4,7 @@
   const LEGACY_DB='embk-safe-draft-v1', LEGACY_STORE='drafts', LEGACY_KEY='current';
   const SAFE_DB='embk-safe-backup-v2', SAFE_STORE='backups';
   const SAFE_CURRENT='current-complete', SAFE_LEGACY='legacy-before-photo-fix';
-  let safeTimer=null;
+  let safeTimer=null, restoreGuard=false;
 
   function triggerDraftSave(message){
     const train=document.getElementById('train');
@@ -112,6 +112,7 @@
   }
 
   async function saveComplete(message){
+    if(restoreGuard)return false;
     await protectExistingDraft();
     try{
       saveCauseState();
@@ -128,6 +129,7 @@
     }
   }
   function queueComplete(){
+    if(restoreGuard)return;
     clearTimeout(safeTimer);
     safeTimer=setTimeout(()=>saveComplete(),500);
   }
@@ -192,6 +194,31 @@
     }catch(e){console.warn('Photo gardée en mémoire restaurée',e)}
   }
 
+  async function overlayProtectedOriginalPhotos(){
+    try{
+      const box=await dbGet(SAFE_DB,SAFE_STORE,SAFE_LEGACY);
+      const d=box&&box.draft;
+      if(!d||!Array.isArray(d.vehicles))return false;
+      decorateAll();
+      const vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      d.vehicles.forEach(function(vo,i){
+        const v=vehicles[i]; if(!v)return;
+        ['left','right'].forEach(function(key){
+          const side=v.querySelector('[id$="_'+key+'"]'),so=vo.sides&&vo.sides[key];
+          if(!side||!so)return;
+          // IMPORTANT: old drafts were created before "Photo de la casse".
+          // Therefore the damage input must never count in the old positional array.
+          const oldInputs=Array.from(side.querySelectorAll('input[type=file]'))
+            .filter(function(inp){return !inp.closest('.damage-cause-wrap')});
+          (so.photos||[]).forEach(function(ph,j){
+            if(ph&&ph.blob&&oldInputs[j])putFileBack(oldInputs[j],ph);
+          });
+        });
+      });
+      return true;
+    }catch(e){console.warn('Récupération copie originale',e);return false}
+  }
+
   async function overlayCompleteBackup(){
     try{
       const d=await dbGet(SAFE_DB,SAFE_STORE,SAFE_CURRENT);
@@ -247,11 +274,12 @@
     protectExistingDraft();
 
     document.addEventListener('change',function(e){
+      if(restoreGuard)return;
       if(e.target instanceof HTMLInputElement)queueComplete();
     },true);
 
     document.addEventListener('embkVehicleAdded',function(){
-      setTimeout(function(){decorateAll();restoreCauseState();queueComplete();},0);
+      setTimeout(function(){decorateAll();restoreCauseState();if(!restoreGuard)queueComplete();},0);
     });
 
     const actions=document.querySelector('.draftactions');
@@ -278,9 +306,20 @@
 
       const restore=el&&el.closest('#restoreDraft');
       if(restore){
+        restoreGuard=true;
+        clearTimeout(safeTimer);
         setTimeout(restoreCauseState,150);
-        setTimeout(overlayCompleteBackup,900);
-        setTimeout(overlayCompleteBackup,1600);
+        // Let the application's normal restore rebuild the fields first,
+        // then put the untouched original photo blobs back in their original slots.
+        setTimeout(async function(){
+          await overlayProtectedOriginalPhotos();
+          const state=document.getElementById('draftState');
+          if(state)state.textContent='Brouillon repris — photos originales récupérées ✓';
+        },1000);
+        setTimeout(async function(){
+          await overlayProtectedOriginalPhotos();
+          restoreGuard=false;
+        },2200);
       }
     },true);
   }
