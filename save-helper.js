@@ -323,7 +323,7 @@
       const target=el&&el.closest('.remove');
       if(target)setTimeout(async function(){saveCauseState();await saveComplete('Véhicule supprimé — sauvegarde mise à jour…');triggerDraftSave();},200);
 
-      const action=el&&el.closest('#addVehicle,#addVehicleBottom,#generatePdf,#generatePdfBottom');
+      const action=el&&el.closest('#addVehicle,#addVehicleBottom');
       if(action&&!validateDamage()){e.preventDefault();e.stopImmediatePropagation()}
 
       const restore=el&&el.closest('#restoreDraft');
