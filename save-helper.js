@@ -111,50 +111,6 @@
     return data;
   }
 
-  async function saveLegacyCompatible(){
-    const data={
-      savedAt:Date.now(),
-      train:document.getElementById('train')?.value||'',
-      baseDate:document.getElementById('baseDate')?.value||'',
-      baseOperator:document.getElementById('baseOperator')?.value||'',
-      dateCommon:document.querySelector('input[name="dateCommon"]:checked')?.value||'',
-      opCommon:document.querySelector('input[name="opCommon"]:checked')?.value||'',
-      vehicles:[]
-    };
-    document.querySelectorAll('.vehicle').forEach(function(v){
-      const vo={
-        number:v.querySelector('.vehicle-number')?.value||'',
-        date:v.querySelector('.vehicle-date')?.value||'',
-        operator:v.querySelector('.vehicle-operator')?.value||'',
-        sides:{}
-      };
-      ['left','right'].forEach(function(key){
-        const side=v.querySelector('[id$="_'+key+'"]');
-        if(!side)return;
-        const id=side.id;
-        const so={
-          embk:side.querySelector('input[name="'+id+'_embk"]:checked')?.value||'',
-          coil:side.querySelector('input[name="'+id+'_coil"]:checked')?.value||'',
-          tests:side.querySelector('input[name="'+id+'_tests"]:checked')?.value||'',
-          res:side.querySelector('.res-value')?.value||'',
-          photos:[]
-        };
-        side.querySelectorAll('input[type=file]').forEach(function(inp){
-          const file=fileFromInput(inp);
-          so.photos.push(file?{
-            name:file.name||'photo.jpg',
-            type:file.type||'image/jpeg',
-            lastModified:file.lastModified||Date.now(),
-            blob:file
-          }:null);
-        });
-        vo.sides[key]=so;
-      });
-      data.vehicles.push(vo);
-    });
-    await dbPut(LEGACY_DB,LEGACY_STORE,LEGACY_KEY,data);
-    return data;
-  }
 
   async function saveComplete(message){
     await protectExistingDraft();
@@ -162,14 +118,13 @@
       saveCauseState();
       const snap=await completeSnapshot();
       await dbPut(SAFE_DB,SAFE_STORE,SAFE_CURRENT,snap);
-      await saveLegacyCompatible();
       const state=document.getElementById('draftState');
       if(state&&message)state.textContent=message;
       return true;
     }catch(e){
       console.error('Sauvegarde complète',e);
       const state=document.getElementById('draftState');
-      if(state)state.textContent='Erreur pendant la sauvegarde complète';
+      if(state)state.textContent='Erreur sauvegarde : '+(e&&e.message?e.message:(e&&e.name?e.name:String(e)));
       return false;
     }
   }
