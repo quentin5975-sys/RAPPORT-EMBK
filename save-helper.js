@@ -274,7 +274,16 @@
       const d=await dbGet(SAFE_DB,SAFE_STORE,SAFE_CURRENT);
       if(!d||!Array.isArray(d.vehicles))return;
       decorateAll();
-      const vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      let vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      while(vehicles.length<d.vehicles.length){
+        if(typeof window.__embkRestoreAddVehicle==='function'){
+          window.__embkRestoreAddVehicle();
+        }else{
+          break;
+        }
+        vehicles=Array.from(document.querySelectorAll('.vehicle'));
+      }
+      decorateAll();
       d.vehicles.forEach(function(vo,i){
         const v=findVehicleElement(vehicles,vo,i); if(!v)return;
         if(v.querySelector('.vehicle-number'))v.querySelector('.vehicle-number').value=vo.number||'';
