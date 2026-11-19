@@ -330,7 +330,59 @@
     alert(problems.join('\n')); return false;
   }
 
+
+  // Inspection uniquement : aucune écriture, restauration ni suppression.
+  async function showRecoveryInspector(){
+    let panel=document.getElementById('embkRecoveryInspector');
+    if(!panel){
+      panel=document.createElement('section');
+      panel.id='embkRecoveryInspector';
+      panel.className='card';
+      panel.style.marginTop='16px';
+      const bar=document.querySelector('.draftbar');
+      if(bar)bar.insertAdjacentElement('afterend',panel);
+      else document.body.prepend(panel);
+    }
+    panel.replaceChildren();
+    const title=document.createElement('h2');title.textContent='Copies locales disponibles';panel.append(title);
+    const info=document.createElement('p');info.textContent='Vérification en lecture seule. Aucun brouillon ne sera remplacé. Ne cliquez pas sur Enregistrer maintenant tant que vous recherchez votre rapport.';panel.append(info);
+    const entries=[
+      ['Copie de sécurité ancienne',SAFE_DB,SAFE_STORE,SAFE_LEGACY],
+      ['Sauvegarde complète',SAFE_DB,SAFE_STORE,SAFE_CURRENT],
+      ['Brouillon principal',LEGACY_DB,LEGACY_STORE,LEGACY_KEY]
+    ];
+    for(const [label,db,store,key] of entries){
+      const p=document.createElement('p');
+      try{
+        const raw=await dbGet(db,store,key);
+        const data=raw&&raw.draft?raw.draft:raw;
+        if(!data){p.textContent=label+' : aucune donnée trouvée';}
+        else{
+          const vehicles=Array.isArray(data.vehicles)?data.vehicles:[];
+          const names=vehicles.map(v=>v.number||v.num||'sans numéro').join(', ');
+          const copied=raw&&raw.copiedAt?new Date(raw.copiedAt).toLocaleString('fr-FR'):'';
+          const train=data.train||'non renseigné';
+          p.textContent=label+' : trouvée — train '+train+' ; '+vehicles.length+' véhicule(s)'+(names?' ('+names+')':'')+(copied?' ; copie du '+copied:'');
+        }
+      }catch(e){p.textContent=label+' : lecture impossible ('+(e&&e.message||String(e))+')';}
+      panel.append(p);
+    }
+    const note=document.createElement('p');
+    note.textContent='Si une ancienne copie contient vos véhicules, ne la restaurez pas encore : contactez-moi avec les résultats affichés pour préparer une récupération sans perte de photos.';
+    panel.append(note);
+  }
+  function addRecoveryButton(){
+    const actions=document.querySelector('.draftactions');
+    if(!actions||document.getElementById('inspectEmbkBackups'))return;
+    const btn=document.createElement('button');
+    btn.id='inspectEmbkBackups';btn.type='button';btn.className='btn secondary';
+    btn.textContent='Rechercher une ancienne sauvegarde';
+    btn.addEventListener('click',showRecoveryInspector);
+    actions.append(btn);
+  }
+
   function setup(){
+    addRecoveryButton();
     decorateAll(); restoreCauseState();
     protectExistingDraft();
 
